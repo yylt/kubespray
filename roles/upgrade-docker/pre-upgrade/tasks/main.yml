@@ -1,0 +1,69 @@
+---
+- name: is docker service ready | upgrade docker
+  shell: docker images
+  register: docker_ready
+  ignore_errors: True
+
+- name: is containerd service ready | upgrade docker
+  shell: ctr i ls
+  register: containerd_ready
+  ignore_errors: True
+
+- name: Ensure nessesary images directory exist | upgrade docker
+  file:
+    dest: "{{ images_backup_dir }}"
+    mode: 0755
+    owner: root
+    group: root
+    state: directory
+
+- name: store nessesary images from docker| upgrade docker
+  command: docker save -o "{{ images_backup_dir }}/{{ item.name }}.tar" "{{ item.image }}"
+  with_items:
+    - "{{ docker_backup_images }}"
+  when:
+    - docker_ready.rc == 0
+
+# pause image can not find by kubectl
+- name: get pause image name
+  shell: docker images | grep pause | awk '{print $1":"$2}'| sed -n 1p
+  register: pause_image
+  when:
+    - docker_ready.rc == 0
+
+- name: store pause_image from docker| upgrade docker
+  command: docker save -o "{{ images_backup_dir }}/pause.tar" "{{ pause_image.stdout }}"
+  when:
+    - docker_ready.rc == 0
+
+- include_tasks: registy.yml
+
+- name: ensure backup directory exist | upgrade docker
+  file:
+    dest: "{{ docker_conf_backup_dir }}"
+    mode: 0755
+    owner: root
+    group: root
+    state: directory
+
+- name: store docker configure files | upgrade docker
+  shell: cp "{{ item }}" "{{ docker_conf_backup_dir }}" -f
+  with_items:
+    - "{{ docker_configure_files }}"
+  when:
+    - docker_ready.rc == 0
+
+- name: find docker storage_drive
+  command: grep -ci "overlay2" /etc/sysconfig/docker-storage
+  ignore_errors: True
+  register: find_overlay2
+
+- include_tasks: release_thinpool_lv.yml
+  when:
+    - find_overlay2.rc != 0
+
+#when docker(ov2) to containerd
+- include_tasks: release_overlay2_lv.yml
+  when:
+    - find_overlay2.rc == 0
+    - container_manager == 'containerd'

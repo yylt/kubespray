@@ -1,0 +1,32 @@
+---
+- name: which node registry running on
+  shell: kubectl get po -n openstack docker-registry-0 -o wide | sed 1d | awk '{print $7}'
+  register: registry_nodename
+
+- name: get local hostname
+  shell: hostname | awk -F. '{print $1}'
+  register: local_nodename
+
+- name: migerate registry when it running on now
+  shell: kubectl delete pod docker-registry-0 --namespace=openstack --force --grace-period=0
+  when:
+    - local_nodename.stdout == registry_nodename.stdout
+
+- name: pause while registry stop
+  pause:
+    seconds: 10
+    prompt: "Waiting for registry stop"
+  when:
+    - local_nodename.stdout == registry_nodename.stdout
+
+- name: wait for registry running
+  uri:
+    url: https://hub.easystack.io/
+    method: GET
+    status_code: 200
+  register: ping
+  ignore_errors: True
+  retries: 10
+  delay: 5
+  when:
+    - local_nodename.stdout == registry_nodename.stdout

@@ -1,0 +1,46 @@
+---
+- name: stop docker service
+  service:
+    name: docker
+    state: stopped
+
+- name: pause while Docker stop
+  pause:
+    seconds: 5
+    prompt: "Waiting for docker stop"
+
+- name: wait for docker stop
+  command: docker images
+  register: docker_ready
+  ignore_errors: True
+  retries: 10
+  delay: 5
+  until: docker_ready.rc != 0
+
+# http://blog.roberthallam.org/2017/12/solved-logical-volume-is-used-by-another-device/comment-page-1/
+# some pod MUST BE FORCE remove
+- name: dmsetup remove dm-x device
+  shell: dmsetup info -c | grep "overlay2 "| awk '{print $2":"$3}'
+  register: block_number
+
+- name: get items from dm
+  shell: find "/sys/dev/block/{{ block_number.stdout }}/holders/" -type l -exec basename {} \;
+  register: block_devices
+
+- name: remove device mappers dependened
+  command: dmsetup remove "/dev/{{ item }}"
+  with_items:
+    - "{{ block_devices.stdout_lines }}"
+
+- name: remove /var/lib/docker
+  file:
+    path: /var/lib/docker
+    force: yes
+    state: absent
+
+- name: delete thinpool/docker vg
+  lvol:
+    force: yes
+    lv: overlay2
+    vg: docker
+    state: absent

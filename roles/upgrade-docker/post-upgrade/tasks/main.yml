@@ -1,0 +1,22 @@
+---
+- name: get docker service status | upgrade docker
+  shell: docker images
+  register: docker_ready
+  ignore_errors: True
+
+- name: get containerd service status | upgrade docker
+  shell: ctr i ls
+  register: containerd_ready
+  ignore_errors: True
+
+- name: resume nessesary images to containerd| upgrade docker
+  shell: find "{{ images_backup_dir }}" -name "*.tar"|xargs -i ctr i import {}
+  ignore_errors: True
+  when:
+   - containerd_ready.rc == 0
+
+- name: resume nessesary images to docker| upgrade docker
+  shell: find "{{ images_backup_dir }}" -name "*.tar"|xargs -i docker load -i {}
+  ignore_errors: True
+  when:
+   - docker_ready.rc == 0

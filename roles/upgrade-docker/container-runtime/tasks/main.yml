@@ -1,0 +1,4 @@
+---
+- name: container install | upgrade docker
+  include_role:
+    name: container-engine

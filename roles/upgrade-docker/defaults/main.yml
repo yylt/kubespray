@@ -1,0 +1,11 @@
+images_backup_dir: /tmp/need_images
+docker_conf_backup_dir: /etc/docker-conf.d.bk
+
+upgrade_docker: false
+
+docker_backup_images:
+
+docker_configure_files:
+  - "/etc/sysconfig/docker"
+  - "/etc/sysconfig/docker-storage"
+  - "/etc/sysconfig/docker-network"

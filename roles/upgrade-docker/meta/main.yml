@@ -1,0 +1,19 @@
+---
+dependencies:
+  - role: upgrade-docker/pre-upgrade
+    when:
+      - upgrade_docker == true
+    tags:
+      - upgrade_only_docker
+
+  - role: upgrade-docker/container-runtime
+    when:
+      - upgrade_docker == true
+    tags:
+      - upgrade_only_docker
+
+  - role: upgrade-docker/post-upgrade
+    when:
+      - upgrade_docker == true
+    tags:
+      - upgrade_only_docker
